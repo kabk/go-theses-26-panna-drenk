@@ -32,6 +32,7 @@ const chapterContainerEl = document.getElementById("chapter")
 const chapterScrollRailEl = document.querySelector(".chapter-scroll-rail")
 const chapterScrollThumbEl = document.querySelector(".chapter-scroll-thumb")
 const mobileNavHintEl = document.getElementById("mobile-nav-hint")
+const siteTopBarEl = document.querySelector(".site-top-bar")
 const topbarTitleEl = document.querySelector(".site-top-bar__title")
 const topbarTitleTriggerEl = document.querySelector(".site-top-bar__title-trigger")
 const topbarColophonEl = document.getElementById("topbar-colophon")
@@ -101,10 +102,12 @@ function flashChapterScrollRail(){
 
 if(chapterContainerEl){
     chapterContainerEl.addEventListener("scroll", () => {
+        scheduleTopBarHeadroomUpdate()
         updateChapterScrollThumb()
         flashChapterScrollRail()
     }, { passive: true })
 }
+window.addEventListener("scroll", scheduleTopBarHeadroomUpdate, { passive: true })
 
 if(chapterContainerEl && typeof ResizeObserver !== "undefined"){
     const chapterScrollRo = new ResizeObserver(() => {
@@ -117,6 +120,60 @@ let mobilePanel = "text"
 let suppressSpyUntil = 0
 let scrollSpyRaf = null
 let mobileHintDismissed = false
+let currentViewKey = OPENING_KEY
+let suppressHeadroomUntil = 0
+const HEADROOM_DELTA_PX = 6
+const HEADROOM_TOP_PX = 12
+let lastHeadroomScrollTop = 0
+let headroomRaf = null
+
+function setTopBarHidden(isHidden){
+    if(!siteTopBarEl) return
+    siteTopBarEl.classList.toggle("site-top-bar--hidden", isHidden)
+    document.body.classList.toggle("top-bar-hidden", isHidden)
+}
+
+function hideTopBarForNavigation(){
+    setTopBarHidden(true)
+    suppressHeadroomUntil = performance.now() + 500
+}
+
+function updateTopBarHeadroom(scrollTop){
+    if(!siteTopBarEl) return
+    if(document.body.classList.contains("site--opening")){
+        setTopBarHidden(false)
+        lastHeadroomScrollTop = 0
+        return
+    }
+    const current = Math.max(0, scrollTop)
+    if(performance.now() < suppressHeadroomUntil){
+        lastHeadroomScrollTop = current
+        return
+    }
+    const delta = current - lastHeadroomScrollTop
+    if(current <= HEADROOM_TOP_PX){
+        setTopBarHidden(false)
+        lastHeadroomScrollTop = current
+        return
+    }
+    if(delta > HEADROOM_DELTA_PX){
+        setTopBarHidden(true)
+    }else if(delta < -HEADROOM_DELTA_PX){
+        setTopBarHidden(false)
+    }
+    lastHeadroomScrollTop = current
+}
+
+function scheduleTopBarHeadroomUpdate(){
+    if(headroomRaf) return
+    headroomRaf = requestAnimationFrame(() => {
+        headroomRaf = null
+        const scrollTop = chapterContainerEl
+            ? chapterContainerEl.scrollTop
+            : (window.scrollY || window.pageYOffset || 0)
+        updateTopBarHeadroom(scrollTop)
+    })
+}
 
 function hideMobileHintOnce(){
     if(mobileHintDismissed) return
@@ -580,10 +637,24 @@ function showChapter(chapterKey, preserveScroll = false){
             return
         }
 
-        const targetSectionKey = sectionKey.startsWith("chapter")
-            ? "fiction" + sectionKey.replace("chapter", "")
-            : sectionKey
-        const section = content.querySelector(`[data-section="${targetSectionKey}"]`)
+        if(sectionKey.startsWith("chapter")){
+            const chapterNumber = parseInt(sectionKey.replace("chapter", ""), 10)
+            // Keep END. as an exception: land on the text block instead of forcing title visibility.
+            if(chapterNumber === 5){
+                const endSection = content.querySelector('[data-section="fiction5"]')
+                if(endSection){
+                    endSection.scrollIntoView({ block: "start" })
+                }
+                return
+            }
+            const chapterTitle = content.querySelector(`.chapter-pair--${chapterNumber} .chapter-title`)
+            if(chapterTitle){
+                chapterTitle.scrollIntoView({ block: "start" })
+                return
+            }
+        }
+
+        const section = content.querySelector(`[data-section="${sectionKey}"]`)
         if(section){
             section.scrollIntoView({ block: "start" })
         }
@@ -673,6 +744,9 @@ function renderPath({ skipOverflowCheck = false } = {}){
         btn.type = "button"
         btn.textContent = getPathStepLabel(step)
         btn.addEventListener("click", () => {
+            if(step !== "abstract"){
+                hideTopBarForNavigation()
+            }
             path.length = index + 1
             mobilePanel = "text"
             render()
@@ -720,6 +794,11 @@ function renderButtons(){
     const handleButtonClick = (e) => {
         const key = e.currentTarget?.dataset?.chapter
         if(!key) return
+        const fromKey = path[path.length-1]
+        const goingFromOpeningToAbstract = fromKey === OPENING_KEY && key === "abstract"
+        if(!goingFromOpeningToAbstract){
+            hideTopBarForNavigation()
+        }
         path.push(key)
         mobilePanel = "text"
         render()
@@ -820,10 +899,21 @@ function createButton(label,click,occupied){
 
 function render({ preserveScroll = false } = {}){
     const key = path[path.length-1]
+    const previousKey = currentViewKey
     if(mapEl){
         mapEl.classList.toggle("map--opening", key === OPENING_KEY)
     }
     document.body.classList.toggle("site--opening", key === OPENING_KEY)
+    if(key === OPENING_KEY){
+        setTopBarHidden(false)
+        lastHeadroomScrollTop = 0
+    }else if(key === "abstract" && previousKey === OPENING_KEY){
+        // Keep top bar visible on first arrival to Abstract.
+        setTopBarHidden(false)
+        lastHeadroomScrollTop = 0
+    }else{
+        scheduleTopBarHeadroomUpdate()
+    }
     updateMobilePanels()
     showChapter(key, preserveScroll)
 
@@ -850,6 +940,7 @@ function render({ preserveScroll = false } = {}){
     }
 
     window.requestAnimationFrame(updateChapterScrollThumb)
+    currentViewKey = key
 }
 
 render()
@@ -1002,10 +1093,6 @@ function syncPathFromScroll(){
 }
 
 function shouldIgnoreScroll(e){
-    const active = document.activeElement
-    if(active && active.closest && active.closest('[contenteditable="true"]')){
-        return true
-    }
     if(e && e.target && e.target.closest && e.target.closest('#chapter-wrapper')){
         return true
     }

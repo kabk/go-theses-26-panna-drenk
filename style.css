@@ -27,8 +27,8 @@
     --mobile-path-buttons-gap: 2px;
     --mobile-controls-buttons-top: 0px;
     --mobile-path-top-offset: 14px;
-    --color-bg-right: #bce5bb;
-    --color-bg-left: #fef9e6;
+    --color-bg-right: #ffffff;
+    --color-bg-left: #ffffff;
     --color-top-bar: #a57a11;
     --color-text: #a57a11;
 }
@@ -43,9 +43,14 @@ body{
     margin: 0;
   font-family: 'Libertinus Serif', serif;
     color: var(--color-text);
+    background: #ffffff;
     overflow-x: hidden;
     padding-top: var(--site-top-bar-height);
     box-sizing: border-box;
+}
+
+body.top-bar-hidden:not(.site--opening){
+    padding-top: 0;
 }
 
 .site-top-bar{
@@ -64,10 +69,17 @@ body{
     font-size: 20px;
     line-height: 1.2;
     font-weight: normal;
-    color: #f9e2ab;
+    color: #ffffff;
     background: var(--color-top-bar);
     border-bottom: 1px solid var(--color-text);
     border-radius: 0;
+    transform: translateY(0);
+    transition: transform 220ms ease;
+    will-change: transform;
+}
+
+.site-top-bar.site-top-bar--hidden{
+    transform: translateY(calc(-1 * var(--site-top-bar-height) - 8px));
 }
 
 .site-top-bar__title{
@@ -88,6 +100,9 @@ body{
     color: inherit;
     text-align: left;
     cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .site-top-bar__colophon{
@@ -131,6 +146,7 @@ body{
     flex: 0 0 auto;
     text-align: right;
     font-family: 'Inter', sans-serif;
+    white-space: nowrap;
 }
 
 .title,
@@ -188,6 +204,11 @@ body.site--opening #mobile-nav-hint{
     height: calc(100vh - var(--site-top-bar-height));
 }
 
+body.top-bar-hidden:not(.site--opening) .container{
+    height: 100vh;
+    height: 100dvh;
+}
+
 .title{
     margin-bottom: 10px;
 }
@@ -206,6 +227,7 @@ body.site--opening #mobile-nav-hint{
     align-items:center;
     justify-content:center;
     height: 100%;
+    z-index: 2;
     border-right: 1px solid var(--color-text);
     background: var(--color-bg-left);
 }
@@ -320,11 +342,6 @@ body:not(.touch-ui) .map:not(.map--opening) .chapter-scroll-rail{
 
 .chapter-block.is-hidden{
     display: none;
-}
-
-[contenteditable="true"]{
-    cursor: text;
-    outline: none;
 }
 
 .chapter-block--opening{
@@ -498,6 +515,7 @@ body:not(.touch-ui) .map:not(.map--opening) .chapter-scroll-rail{
     bottom: var(--buttons-margin);
     box-sizing: border-box;
     background: var(--color-bg-right);
+    z-index: 1;
     pointer-events: none;
 }
 
@@ -556,7 +574,7 @@ body:not(.touch-ui) .map:not(.map--opening) .chapter-scroll-rail{
 button{
     box-sizing: border-box;
     margin: 0;
-    background: #bce5bb;
+    background: #ffffff;
     color: var(--color-text);
     border: 1px solid var(--color-text);
     padding: 4px 8px;
@@ -616,7 +634,17 @@ button{
 @media (max-width: 900px){
     .site-top-bar{
         padding: 7px 16px;
-        font-size: 12;
+        font-size: 18px;
+        gap: 8px;
+    }
+
+    .site-top-bar__title{
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .site-top-bar__path-label{
+        flex-shrink: 0;
     }
 
     .site-top-bar__colophon{
@@ -676,6 +704,10 @@ button{
         position: relative;
         overflow: hidden;
         height: calc(100dvh - var(--site-top-bar-height));
+    }
+
+    body.top-bar-hidden:not(.site--opening) .container{
+        height: 100dvh;
     }
 
     body.site--opening #chapter{
