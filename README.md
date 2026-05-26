@@ -1,1 +1,1 @@
-# go-theses-26-panna-drenk
+# go-theses-26-panna-drenko
